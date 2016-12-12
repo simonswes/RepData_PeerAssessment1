@@ -93,6 +93,8 @@ mean(dailySteps$steps, na.rm=TRUE)
 median(newDailySteps$newSteps)
 median(dailySteps$steps, na.rm=TRUE)
 ```
+
+##Weekdays vs. Weekends
 In order to compare the week vs. the weekend we need to add a new column. 
 ```{r}
 weekday<- c("Monday","Tuesday","Wednesday","Thursday","Friday")
