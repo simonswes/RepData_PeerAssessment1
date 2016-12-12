@@ -1,25 +1,112 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Course Project 1"
+author: "Wes"
+date: "December 10, 2016"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+#Reproducible Research Course Project 1
+
+##Load Necessary Libraries
+```{r Load Libraries}
+library(dplyr)
+```
+
+##Loading the data
+```{r Load the Data}
+temp <- tempfile()
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip",temp, mode="wb")
+unzip(temp, "activity.csv")
+dd <- read.csv("activity.csv", header=T)
+```
+
+##Mean number of steps per day
+Group the intervals into days:
+```{r Steps Per Day}
+dailySteps<- dd[,1:2] %>% group_by (date) %>% summarise_each(funs(sum))
+```
+Create a histogram of steps per day:
+```{r}
+hist(dailySteps$steps)
+```
+
+Calculate the Mean and Median steps per day:
+```{r}
+mean(dailySteps$steps, na.rm=TRUE)
+median(dailySteps$steps, na.rm=TRUE)
+```
 
 
+##Average daily activity pattern
+Calculate the average number of steps for each interval, ignoring N/A values
+```{r}
+dd2<-dd
+dd2$date <- NULL
+intervalMean<- dd2 %>% group_by(interval) %>% summarise_each(funs(mean(., na.rm=TRUE)))
+```
+Plot a time series view of the average number of steps per interval
+```{r}
+plot(intervalMean$interval, intervalMean$steps, type="l")
+```
+Find the interval with the highest average number of steps
+```{r}
+maxSteps<-match(max(intervalMean$steps), intervalMean$steps)
+intervalMean$interval[maxSteps]
+```
 
-## What is mean total number of steps taken per day?
+##Input missing values
+Calculate the total number of rows containing N/A
+```{r}
+countNAs<- dd %>% filter(is.na(steps))
+nrow((countNAs))
+```
 
+Our data set has many missing values. In order to populate these values, we will use the mean value for the interval with the missing value. 
+We will start by recreating our intervalMean data set. We will not run this code as it was run previously. 
+```{r results="hide"}
+dd2<-dd
+dd2$date <- NULL
+intervalMean<- dd2 %>% group_by(interval) %>% summarise_each(funs(mean(., na.rm=TRUE)))
+```
+Next we create a new data frame with a new column where all N/A values have been replaced with the mean value for that interval, and all non N/A values are preserved. We can also look at this at a daily level
+```{r}
 
+ddnewSteps<-mutate(dd, newSteps = ifelse(is.na(steps), intervalMean$steps[match(dd$interval, intervalMean$interval)], dd$steps))
+columns1<-c(2,4)
+newDailySteps<- ddnewSteps[,columns1] %>% group_by(date) %>% summarise_each(funs(sum))
+```
+Now we create a histogram to analyze the data with our averaged values added in. 
+```{r}
+par(mfrow=c(1,2))
+hist(newDailySteps$newSteps, main = "Added Data")
+hist(dailySteps$steps, main = "Original Data")
+```
 
-## What is the average daily activity pattern?
+We can also compare the mean and the median values from our altered data set with the original data set. There appears to be very little change despite all of our work to add in more data. 
+```{r}
+mean(newDailySteps$newSteps)
+mean(dailySteps$steps, na.rm=TRUE)
+median(newDailySteps$newSteps)
+median(dailySteps$steps, na.rm=TRUE)
+```
+In order to compare the week vs. the weekend we need to add a new column. 
+```{r}
+weekday<- c("Monday","Tuesday","Wednesday","Thursday","Friday")
+newDailySteps2<-ddnewSteps
+newDailySteps2$date<-as.POSIXct(newDailySteps2$date)
+newDailySteps2 <- newDailySteps2 %>% mutate (weekday=ifelse(weekdays(newDailySteps2$date) %in% weekday, "weekday", "weekend"))
+newDailySteps2<- newDailySteps2[,3:5] %>% group_by (weekday, interval) %>% summarise_each(funs(sum))
+```
+Finally, we can plot the number of steps for a given interval on weekdays vs weekends to see how they compare.
+```{r}
 
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+par(mfrow=c(2,1))
+weekdaySteps <- newDailySteps2 %>% filter(weekday=="weekday")
+weekendSteps <- newDailySteps2 %>% filter(weekday=="weekend")
+plot(weekdaySteps$interval, weekdaySteps$newSteps, type="l")
+plot(weekendSteps$interval, weekendSteps$newSteps, type="l")
+```
